@@ -53,23 +53,30 @@ class pravin {
 			$table_name = $wpdb->prefix . 'pravin_todo_options';
 			$sql = "CREATE TABLE $table_name (
 				option_id		smallint(3)	not null,
+				
 				show_limit		smallint(3)	default '1',
+				show_completed	tinyint(1)	default '0',
+				show_duetoday	tinyint(1)	default '0',
+				
 				show_spectrum	tinyint(1)	default '1',
 				hot_color		tinytext,
 				cold_color		tinytext,
+				
 				format_date_due	tinytext,
 				format_date_creat tinytext,
-				sort_f1			tinytext,
-				sort_order_f1 	tinytext,
-				sort_f2			tinytext,
-				sort_order_f2 	tinytext,
+				
+				sort_field1		tinytext,
+				sort_order1 	tinytext,
+				sort_field2		tinytext,
+				sort_order2 	tinytext,
+				
 				show_task_id	tinyint(1)	default '0',
 				show_task_owner	tinyint(1)	default '1',
 				show_assigned_by tinyint(1) default '0',
 				show_date_due	tinyint(1)	default '1',
 				show_date_creat	tinyint(1)	default '0',
 				show_priority	tinyint(1)	default '1',
-				show_completed	tinyint(1)	default '0',
+				
 				show_notes		tinyint(0)	default '0',
 				column_order	text		default '',
 				timezone_offset	tinytext,
@@ -79,7 +86,7 @@ class pravin {
 			$results = $wpdb->query($sql);
 
 			// Add initial data
-			$sql = "INSERT INTO `$table_name` (show_limit, sort_f1, sort_order_f1, sort_f2, sort_order_f2) " . 
+			$sql = "INSERT INTO `$table_name` (show_limit, sort_field1, sort_order1, sort_field2, sort_order2) " . 
 				" VALUES ('5', 'status', 'DESC', 'date_due', 'DESC')";
 			$results = $wpdb->query($sql);
 		}
@@ -159,42 +166,65 @@ class pravin {
 	</form>
 	<p>&nbsp;</p>
 	<h2>Display Options</h2>
+	<form action="edit.php?page=todo" method="POST">
 	<table cellpadding="5" cellspacing="2" width="100%">
 	<tbody>
 		<tr>
-			<td width="20%" align="right"><label for="sortby">Sort By:</label></td>
+			<td width="20%" align="right"><label for="limit">Number of tasks to show:</label></td>
 			<td>
-				<select name="sortby">
-				<option value="duedate">Due date</option>
-				<option value="priority">Priority</option>
+				<input type="text" name="limit" value="<$ShowLimit$>" size="4" maxsize="4" />
+			</td>
+		</tr>
+		<tr>
+			<td width="20%" align="right"><label for="showcompleted">Show Completed Tasks:</label></td>
+			<td>
+				<select name="showcompleted">
+				<$ShowCompleted$>
 				</select>
 			</td>
 		</tr>
 		<tr>
-			<td align="right"><label for="sortorder">Sort Order:</label></td>
+			<td width="20%" align="right"><label for="showduetoday">Only show tasks due today:</label></td>
 			<td>
-				<select name="sortorder">
-				<option value="asc">Ascending</option>
-				<option value="desc">Descending</option>
+				<select name="showduetoday">
+				<$ShowDueToday$>
 				</select>
 			</td>
 		</tr>
 		<tr>
-			<td align="right"><label for="showtasks">Show Tasks:</label></td>
+			<td width="20%" align="right"><label for="sortby1">Sort By (Field 1):</label></td>
 			<td>
-				<select name="showtasks">
-				<option value="showdue">Show tasks that are not done</option>
-				<option value="showalltasks">Show all tasks</option>
-				<option value="showduenow">Show tasks that are due now</option>
-				<option value="done">Show completed tasks</option>
+				<select name="sortby1">
+				<$SortBy1$>
 				</select>
+				<select name="sortorder1">
+				<$SortOrder1$>
+				</select>
+			</td>
+		</tr>
+		<tr>
+			<td width="20%" align="right"><label for="sortby2">Sort By (Field 2):</label></td>
+			<td>
+				<select name="sortby2">
+				<$SortBy2$>
+				</select>
+				<select name="sortorder2">
+				<$SortOrder2$>
+				</select>
+			</td>
+		</tr>
+		<tr>
+			<td><input type="hidden" name="operation" value="options" /></td>
+			<td>
+				<input type="submit" value="Save Options" />
 			</td>
 		</tr>
 	</tbody>
 	</table>
+	</form>
 	<p>&nbsp;</p>
 	<h2>Advanced</h2>
-	<p>If you are upgrading from v0.1 to v0.2, use this to DROP your table. You will lost all ToDo data! After you press the button, you will get an error. It is alright. Deactivate the plugin and activate it again.</p>
+	<p>If you are upgrading from v0.1 to v0.2, use this to DROP your table. <b>You will lost all ToDo data and settings!</b> After you press the button, you will get an error. It is expected. Deactivate the plugin and activate it again to recreate your tables.</p>
 	<form action="edit.php?page=todo" method="POST"><input type="hidden" name="operation" value="drop" /><input type="submit" value="Drop Table" /></form>
 </div>';
 		
@@ -252,7 +282,6 @@ class pravin {
 		
 		$output_html = str_replace('<$ToDoList$>', $todolist, $output_html);
 
-
 		$month_array = array('January', 'February', 'March', 'April', 
 			'May', 'June', 'July', 'August', 
 			'September', 'October', 'November', 'December');	
@@ -283,6 +312,98 @@ class pravin {
 			$userlist .= '<option value="' . $user->ID . '">' . $user->user_nicename . '</option>';
 		}
 		$output_html = str_replace('<$UserList$>', $userlist, $output_html);
+
+		
+		// Get Show Completed 
+		$table_name = $wpdb->prefix . 'pravin_todo_options';
+		
+		$op = $wpdb->get_var("SELECT show_limit FROM $table_name LIMIT 1");
+		$output_html = str_replace('<$ShowLimit$>', $op, $output_html);
+		
+		$op = $wpdb->get_var("SELECT show_completed FROM $table_name LIMIT 1");
+		$option_html = '';
+		if(1 == $op)
+		{
+			$option_html = '<option value="1" selected="selected">Yes</option><option value="0">No</option>';
+		}
+		else
+		{
+			$option_html = '<option value="1">Yes</option><option value="0" selected="selected">No</option>';
+		}
+		$output_html = str_replace('<$ShowCompleted$>', $option_html, $output_html);
+		
+		// Get Due Today
+		$op = $wpdb->get_var("SELECT show_duetoday FROM $table_name LIMIT 1");
+		$option_html = '';
+		if(1 == $op)
+		{
+			$option_html = '<option value="1" selected="selected">Yes</option><option value="0">No</option>';
+		}
+		else
+		{
+			$option_html = '<option value="1">Yes</option><option value="0" selected="selected">No</option>';
+		}
+		$output_html = str_replace('<$ShowDueToday$>', $option_html, $output_html);
+
+		// Get sort field 1
+		$op = $wpdb->get_var("SELECT sort_field1 FROM $table_name LIMIT 1");
+		$option_html = '';
+		if('date_due' == $op)
+		{
+			$option_html = '<option value="date_due" selected="selected">Date due</option><option value="priority">Priority</option><option vale="status">Status</option>';
+		}
+		else if('priority' == $op)
+		{
+			$option_html = '<option value="date_due">Date due</option><option value="priority" selected="selected">Priority</option><option vale="status">Status</option>';
+		}
+		else
+		{
+			$option_html = '<option value="date_due">Date due</option><option value="priority">Priority</option><option vale="status" selected="selected">Status</option>';
+		}
+		$output_html = str_replace('<$SortBy1$>', $option_html, $output_html);
+		
+		// Get sort field 2
+		$op = $wpdb->get_var("SELECT sort_field2 FROM $table_name LIMIT 1");
+		$option_html = '';
+		if('date_due' == $op)
+		{
+			$option_html = '<option value="date_due" selected="selected">Date due</option><option value="priority">Priority</option><option vale="status">Status</option>';
+		}
+		else if('priority' == $op)
+		{
+			$option_html = '<option value="date_due">Date due</option><option value="priority" selected="selected">Priority</option><option vale="status">Status</option>';
+		}
+		else
+		{
+			$option_html = '<option value="date_due">Date due</option><option value="priority">Priority</option><option vale="status" selected="selected">Status</option>';
+		}
+		$output_html = str_replace('<$SortBy2$>', $option_html, $output_html);				
+				
+		// Get Sort Order 1
+		$op = $wpdb->get_var("SELECT sort_order1 FROM $table_name LIMIT 1");
+		$option_html = '';
+		if('asc' == $op)
+		{
+			$option_html = '<option value="asc" selected="selected">Ascending</option><option value="desc">Descending</option>';
+		}
+		else
+		{
+			$option_html = '<option value="asc">Ascending</option><option value="desc" selected="selected">Descending</option>';
+		}
+		$output_html = str_replace('<$SortOrder1$>', $option_html, $output_html);
+		
+		// Get Sort Order 2
+		$op = $wpdb->get_var("SELECT sort_order2 FROM $table_name LIMIT 1");
+		$option_html = '';
+		if('asc' == $op)
+		{
+			$option_html = '<option value="asc" selected="selected">Ascending</option><option value="desc">Descending</option>';
+		}
+		else
+		{
+			$option_html = '<option value="asc">Ascending</option><option value="desc" selected="selected">Descending</option>';
+		}
+		$output_html = str_replace('<$SortOrder2$>', $option_html, $output_html);
 		
 		echo $output_html;
 	}
@@ -362,15 +483,15 @@ else if('update' == $name) {
 	$id = $_POST["id"];
 	if('delete' == $dowhat)
 	{
-		$sql = 'delete from ' . $table_name . ' where task_id=' . $id;
+		$sql = "DELETE FROM $table_name WHERE task_id=$id";
 	}
 	else if('done' == $dowhat)
 	{
-		$sql = 'update ' . $table_name . " set status='1' where task_id=" .$id;
+		$sql = "UPDATE $table_name SET status='1' WHERE task_id=$id";
 	}
 	else
 	{
-		$sql = 'update ' . $table_name . " set status='0' where task_id=" .$id;
+		$sql = "UPDATE $table_name SET status='0' WHERE task_id=$id";
 	}
 	
 	$results = $wpdb->query($sql);
@@ -381,6 +502,18 @@ else if('drop' == $name) {
 	$table_options = $table_name . '_options';
 	
 	$wpdb->query("DROP TABLE `$table_name`, `$table_options`;");
+}
+else if('options' == $name) {
+	global $wpdb;
+	$table_name = $wpdb->prefix . 'pravin_todo_options';
+	
+	$wpdb->query("UPDATE $table_name SET show_limit='" . $_POST['limit'] . 
+	"', sort_field1='" . $_POST['sortby1'] . 
+	"', sort_order1='" . $_POST['sortorder1'] .
+	"', sort_field2='" . $_POST['sortby2'] .
+	"', sort_order2='" . $_POST['sortorder2'] .
+	"', show_completed='" . $_POST['showcompleted'] . 
+	"', show_duetoday='" . $_POST['showduetoday'] . "'");
 }
 
 function pravin_get_todo()
@@ -395,11 +528,11 @@ function pravin_get_todo()
 	$option = $options[0];
 	
 	$where_clause = '';
-	if($option->show_completed == '1')
+	if($option->show_completed == '0')
 	{
-		$where_clause = " WHERE status='1' ";
+		$where_clause = " WHERE status='0' ";
 	}
-	$sql = "SELECT * from `$table_name` $where_clause ORDER BY $option->sort_f1 $option->sort_order_f1, $option->sort_f2 $option->sort_order_f2 LIMIT $option->show_limit";
+	$sql = "SELECT * from `$table_name` $where_clause ORDER BY $option->sort_field1 $option->sort_order1, $option->sort_field2 $option->sort_order2 LIMIT $option->show_limit";
 	
 	$results = $wpdb->get_results($sql);
 	$output_html = '<ul>';
@@ -411,7 +544,7 @@ function pravin_get_todo()
 		{
 			$class = 'done';
 		}
-		else if($result->due_date < time())
+		else if($result->date_due < time())
 		{
 			$class = 'duetoday';
 		}
