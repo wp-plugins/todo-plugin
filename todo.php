@@ -2,7 +2,7 @@
 /*
 Plugin Name: todo-plugin
 Plugin URI: http://www.DustyAnt.com/
-Description: Lets you create and manage a todo list. To show your todo list, just put <code>&lt;?php pravin_todo(); ?&gt;</code> in your template.
+Description: Lets you create and manage a todo list. To show your todo list, just put <code>&lt;?php pravin_get_todo(); ?&gt;</code> in your template.
 Version: 0.2
 Author: Pravin Paratey
 Author URI: http://www.DustyAnt.com
@@ -424,7 +424,7 @@ function widget_pravin_todo() {
 		// Each widget can store its own options. We keep strings here.
 		$title = $options['title'];
 
-		echo $before_widget . $before_title . $title . $after_title;
+		echo $before_widget . $before_title . 'ToDo' . $after_title;
 		echo pravin_get_todo();
 		echo $after_widget;
 	}
