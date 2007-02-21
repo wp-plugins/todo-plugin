@@ -1,9 +1,9 @@
 <?php
 /*
-Plugin Name: ToDo
+Plugin Name: todo-plugin
 Plugin URI: http://www.DustyAnt.com/
-Description: Lets you create and manage a todo list
-Version: 0.1
+Description: Lets you create and manage a todo list. To show your todo list, just put <code>&lt;?php pravin_todo(); ?&gt;</code> in your template.
+Version: 0.2
 Author: Pravin Paratey
 Author URI: http://www.DustyAnt.com
 */
@@ -24,152 +24,333 @@ Author URI: http://www.DustyAnt.com
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 */
 
-/* Notes:
- * Fields - date_opened, due_date, author, text, status
-*/
-
 class pravin {
-
+	
+	// --------------------------------------------------------------------
+	// Responsible for installing the plugin
+	// --------------------------------------------------------------------
 	function todo_install() {
 		global $wpdb;
 		$table_name = $wpdb->prefix . 'pravin_todo';
 		
 		// Check if the table is already present
-		if($wpdb->get_var("show tables like '" . $table_name ."'") != $table_name) {
-			
-			$sql = 'create table ' . $table_name . " (
-				id mediumint(9) not null auto_increment,
-				opened_date bigint(11) default '0' not null,
-				due_date bigint(11) not null,
-				item text not null,
-				status tinyint default '0' not null,
-				unique key id(id)
+		if($wpdb->get_var("SHOW TABLES LIKE '" . $table_name ."'") != $table_name) {
+			$sql = "CREATE TABLE $table_name (
+				task_id 	bigint(20) 	not null auto_increment,
+				task_desc	text		not null default '',
+				task_owner 	bigint(20) 	not null,
+				assigned_by bigint(30) 	not null,
+				date_due 	bigint(11) 	not null default '0',
+				date_created bigint(11)	not null default '0',
+				priority	smallint(3)	not null default '1',
+				notes		text		not null default '',
+				status		tinyint(1)	not null default '0',
+				unique key id(task_id)
 				);";
 				
+			$results = $wpdb->query($sql);
+			
+			$table_name = $wpdb->prefix . 'pravin_todo_options';
+			$sql = "CREATE TABLE $table_name (
+				option_id		smallint(3)	not null,
+				show_limit		smallint(3)	default '1',
+				show_spectrum	tinyint(1)	default '1',
+				hot_color		tinytext,
+				cold_color		tinytext,
+				format_date_due	tinytext,
+				format_date_creat tinytext,
+				sort_f1			tinytext,
+				sort_order_f1 	tinytext,
+				sort_f2			tinytext,
+				sort_order_f2 	tinytext,
+				show_task_id	tinyint(1)	default '0',
+				show_task_owner	tinyint(1)	default '1',
+				show_assigned_by tinyint(1) default '0',
+				show_date_due	tinyint(1)	default '1',
+				show_date_creat	tinyint(1)	default '0',
+				show_priority	tinyint(1)	default '1',
+				show_completed	tinyint(1)	default '0',
+				show_notes		tinyint(0)	default '0',
+				column_order	text		default '',
+				timezone_offset	tinytext,
+				unique key id(option_id)
+				);";
+			
+			$results = $wpdb->query($sql);
+
+			// Add initial data
+			$sql = "INSERT INTO `$table_name` (show_limit, sort_f1, sort_order_f1, sort_f2, sort_order_f2) " . 
+				" VALUES ('5', 'status', 'DESC', 'date_due', 'DESC')";
 			$results = $wpdb->query($sql);
 		}
 	}
 	
+	// --------------------------------------------------------------------
+	// Adds the ToDo page under Manage
+	// --------------------------------------------------------------------
 	function todo_addpages() {
 		add_management_page('Manage your ToDo list', 'ToDo', 8, 'todo', array('pravin', 'todo_addoption'));
 	}
 	
-	function todo_addoption() {
-		
-		$month_array = array('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December');
-		
-		echo <<<OPTIONFORM0
-	<div class="wrap">	
-		<h2>ToDo List</h2>
-		<table cellpadding="5" cellspacing="2" width="100%">
-		<tbody>
-OPTIONFORM0;
-
+	// --------------------------------------------------------------------
+	// Responsible for rendering the ToDo page under Manage
+	// --------------------------------------------------------------------
+	function todo_addoption()
+	{		
 		global $wpdb;
+		
+		$output_html = '<div class="wrap">	
+	<h2>ToDo List</h2>
+	<table cellpadding="5" cellspacing="2" width="100%">
+	<tbody>
+		<$ToDoList$>
+	</tbody>
+	</table>
+	<p>&nbsp;</p>
+	<h2>Add a ToDo</h2>
+	<form name="addtodo" id="addtodo" action="edit.php?page=todo" method="post">
+	<table cellpadding="5" cellspacing="2" width="100%">
+	<tbody>
+	<tr>
+		<td align="right" width="20%"><label for="task">Task: </label></td>
+		<td><input name="task" size="80"/></td>
+	</tr>
+	<tr>
+		<td align="right"><label for="month">Due: </label></td>
+		<td>
+			<$ToDoAdd$>
+		</td>
+		</tr>
+		<tr>
+			<td align="right"><label for="taskowner">Assign to:</label></td>
+			<td>
+			<select name="taskowner">
+				<$UserList$>
+			</select>
+			</td>
+		</tr>
+		<tr>
+			<td align="right"><label for="priority">Priority:</label></td>
+			<td>
+				<select name="priority">
+				<option value="1">1</option>
+				<option value="2">2</option>
+				<option value="3">3</option>
+				<option value="4">4</option>
+				<option value="5">5</option>
+				</select>
+			</td>
+		</tr>
+		<tr>
+			<td align="right"><label for="notes">Notes:</label></td>
+			<td>
+				<textarea name="notes" rows="4" cols="60"></textarea>
+			</td>
+		</tr>
+		<tr>
+			<td></td>
+			<td>
+			<input type="hidden" name="operation" value="add" />
+			<input type="submit" name="submit" value="Add ToDo" />
+			</td>
+		</tr>
+	</tbody>
+	</table>
+	</form>
+	<p>&nbsp;</p>
+	<h2>Display Options</h2>
+	<table cellpadding="5" cellspacing="2" width="100%">
+	<tbody>
+		<tr>
+			<td width="20%" align="right"><label for="sortby">Sort By:</label></td>
+			<td>
+				<select name="sortby">
+				<option value="duedate">Due date</option>
+				<option value="priority">Priority</option>
+				</select>
+			</td>
+		</tr>
+		<tr>
+			<td align="right"><label for="sortorder">Sort Order:</label></td>
+			<td>
+				<select name="sortorder">
+				<option value="asc">Ascending</option>
+				<option value="desc">Descending</option>
+				</select>
+			</td>
+		</tr>
+		<tr>
+			<td align="right"><label for="showtasks">Show Tasks:</label></td>
+			<td>
+				<select name="showtasks">
+				<option value="showdue">Show tasks that are not done</option>
+				<option value="showalltasks">Show all tasks</option>
+				<option value="showduenow">Show tasks that are due now</option>
+				<option value="done">Show completed tasks</option>
+				</select>
+			</td>
+		</tr>
+	</tbody>
+	</table>
+	<p>&nbsp;</p>
+	<h2>Advanced</h2>
+	<p>If you are upgrading from v0.1 to v0.2, use this to DROP your table. You will lost all ToDo data! After you press the button, you will get an error. It is alright. Deactivate the plugin and activate it again.</p>
+	<form action="edit.php?page=todo" method="POST"><input type="hidden" name="operation" value="drop" /><input type="submit" value="Drop Table" /></form>
+</div>';
+		
 		$table_name = $wpdb->prefix . 'pravin_todo';
-		$sql = "select id, due_date, item, status from " . $table_name . " order by status ASC, due_date ASC ";
+		$sql = "select * from $table_name order by status ASC, date_due ASC ";
 		$results = $wpdb->get_results($sql);
 		
 		$alt = 0;
 		
-		$output_html = '';
+		$todolist = '<tr style="background-color:#69c; color:#fff"><td>Date Due</td><td>Description</td><td>Task Owner</td><td>Priority</td><td>Assigned By</td><td>Action</td></tr>';
 		if(count($results) > 0)
 		{
 			foreach($results as $result)
 			{
 				if(1 == $result->status)
 				{
-					$output_html .= '<tr bgcolor="#ccffcc">';
+					$todolist .= '<tr bgcolor="#ccffcc">';
 				}
-				else if($result->due_date < time())
+				else if($result->date_due < time())
 				{
-					$output_html .= '<tr bgcolor="#ffcccc">';
+					$todolist .= '<tr bgcolor="#ffcccc">';
 				}
 				else
 				{
-					$output_html .= '<tr>';
+					$todolist .= '<tr>';
 				}
 				
-				$output_html .= '<td>' . date('M-d-Y', $result->due_date) . '</td><td>'. $result->item . '</td><td>' .
-					'<form name="addtodo" id="addtofo" action="edit.php?page=todo" method="post">
+				$assigned_by = $wpdb->get_var("SELECT user_nicename FROM `$wpdb->users` WHERE ID = $result->assigned_by LIMIT 1");
+				$assigned_to = $wpdb->get_var("SELECT user_nicename FROM `$wpdb->users` WHERE ID = $result->task_owner LIMIT 1");
+				
+				// 'F jS, Y @ H:i'
+				$todolist .= '<td><div title="' . gmdate('F jS, Y @ H:i', $result->date_due) . '">' . gmdate('m/d/y H:i', $result->date_due) . '</div></td>'. 
+					'<td><div title="' . $result->notes . '">' .$result->task_desc . '</td><td>' .
+					$assigned_to . '</td><td>' .
+					$result->priority . '</td>' . 
+					'<td><div title="Assigned on ' . gmdate('F jS, Y @ H:i', $result->date_created) . '">' . $assigned_by . '</td><td>' .
+					'<form action="edit.php?page=todo" method="post">
 						<select name="dowhat">
 							<option value="';
 						if($result->status == 0) {
-							$output_html .= 'done">Mark Done';
+							$todolist .= 'done">Mark Done';
 						}
 						else {
-							$output_html .= 'undone">Mark Undone';
+							$todolist .= 'undone">Mark Undone';
 						}
-				$output_html .= '</option>
+				$todolist .= '</option>
 							<option value="delete">Delete</option>
 						</select>
 						<input type="hidden" name="operation" value="update" />
-						<input type="hidden" name="id" value="' . $result->id . '" />
+						<input type="hidden" name="id" value="' . $result->task_id . '" />
 						<input type="submit" value="Go!" />
 					</form></td></tr>';
 			}
 		}
 		
-		echo $output_html;
+		$output_html = str_replace('<$ToDoList$>', $todolist, $output_html);
 
-echo <<<OPTIONFORM0
-		</tbody>
-		</table>
-		
-		<h2>Add a ToDo</h2>
-		<form name="addtodo" id="addtofo" action="edit.php?page=todo" method="post">
-		<table cellpadding="5" cellspacing="2" width="100%">
-		<tbody>
-		<tr>
-			<td><label for="task"><b>Task: </b></label><input name="task" size="80"/></td>
-			<td><label for="month"><b>Due: </b></label>
-			<select name="month">
-OPTIONFORM0;
-			
-			$cur_month = date('n');
-			$month_html = '';
-			for($i=1; $i < 13; $i++)
+
+		$month_array = array('January', 'February', 'March', 'April', 
+			'May', 'June', 'July', 'August', 
+			'September', 'October', 'November', 'December');	
+		$cur_month = date('n');
+		$month_html = '';
+		for($i=1; $i < 13; $i++)
+		{
+			$month_html .= '<option value="' . $i;
+			if($cur_month == $i)
 			{
-				$month_html .= '<option value="' . $i;
-				if($cur_month == $i)
-				{
-					$month_html .= '" selected="selected';
-				}
-				$month_html .= '">' . $month_array[$i-1] . '</option>';
+				$month_html .= '" selected="selected';
 			}
+			$month_html .= '">' . $month_array[$i-1] . '</option>';
+		}
 			
-			echo $month_html . '</select>' ;
-			echo '<input name="day" size="2" maxlength="2" value="' . date('d') . '" />';
-			echo '<input name="year" size="4" maxlength="4" value="' . date('Y') . '" />';
-			echo <<<OPTIONFORM2
-			</td>
-			<td>
-			<input type="hidden" name="operation" value="add" />
-			<input type="submit" name="submit" value="Add" />
-			</td>
-		</tbody>
-		</table>
-		</form>
-	</div>
-OPTIONFORM2;
+		$month_html = '<select name="month">' . $month_html . '</select>' .
+			' <input name="day" size="2" maxlength="2" value="' . date('d') . '" />, ' .
+			'<input name="year" size="4" maxlength="4" value="' . date('Y') . '" /> @ ' .
+			'<input name="hour" size="2" maxlength="2" value="' . date('H') . '" /> : ' .
+			'<input name="minute" size="2" maxlength="2" value="' . date('i') . '" /> hrs';
+			
+		$output_html = str_replace('<$ToDoAdd$>', $month_html, $output_html);
+			
+		$users = $wpdb->get_results("SELECT * FROM `$wpdb->users`");
+		$userlist = '';
+		foreach($users as $user)
+		{
+			$userlist .= '<option value="' . $user->ID . '">' . $user->user_nicename . '</option>';
+		}
+		$output_html = str_replace('<$UserList$>', $userlist, $output_html);
+		
+		echo $output_html;
 	}
 }
 
-// This function called when user clicks activate in the plugin menu
-add_action('activate_pravin/todo.php', array('pravin', 'todo_install'));
+// --------------------------------------------------------------------
+// Widgetize!
+// --------------------------------------------------------------------
+function widget_pravin_todo() {
 
+	function widget_todo($args) {
+		
+		// $args is an array of strings that help widgets to conform to
+		// the active theme: before_widget, before_title, after_widget,
+		// and after_title are the array keys. Default tags: li and h2.
+		extract($args);
+
+		// Each widget can store its own options. We keep strings here.
+		$title = $options['title'];
+
+		echo $before_widget . $before_title . $title . $after_title;
+		echo pravin_get_todo();
+		echo $after_widget;
+	}
+	
+	// This registers our widget so it appears with the other available
+	// widgets and can be dragged and dropped into any active sidebars.
+	register_sidebar_widget(array('ToDo Plugin', 'widgets'), 'widget_todo');
+}
+
+// --------------------------------------------------------------------
+// Called when user clicks activate in the plugin menu
+// --------------------------------------------------------------------
+if (isset($_GET['activate']) && $_GET['activate'] == 'true') {
+	if (defined('WPINC') && strpos($_SERVER['HTTP_REFERER'], $_SERVER['SERVER_NAME']) > 0) {
+		add_action('init', array('pravin', 'todo_install'));
+	}
+}
+// --------------------------------------------------------------------
 // Insert the mt_add_pages() sink into the plugin hook list for 'admin_menu'
+// --------------------------------------------------------------------
 add_action('admin_menu', array('pravin', 'todo_addpages'));
 
+// Run our code later in case this loads prior to any required plugins.
+add_action('widgets_init', 'widget_pravin_todo');
 
+
+// --------------------------------------------------------------------
 // Handle any add/delete/update requests
+// --------------------------------------------------------------------
 $name = $_POST["operation"];
 if('add' == $name) {
 	global $wpdb;
+	
+	// I don't know how to get current user :(
+	// wp-includes/pluggable-functions line 30 looks promising
+	$assigned_by = '1';
+	
 	$table_name = $wpdb->prefix . 'pravin_todo';
-	$sql = "insert into " . $table_name . " (opened_date, due_date, item) " .
-			"values ('" . time() . "', '" . mktime(0, 0, 0, $_POST["month"], $_POST["day"], $_POST["year"]) . 
-			"', '" . $wpdb->escape($_POST["task"]) . "');";
+	$date_due = mktime($_POST["hour"], $_POST["minute"], 0, $_POST["month"], $_POST["day"], $_POST["year"]);
+	$sql = "INSERT INTO `$table_name` (task_desc, task_owner, assigned_by, date_due, date_created, priority, notes)  VALUES( '" .
+			$wpdb->escape($_POST["task"]) . "' , '" . 
+			$_POST['taskowner'] . "' , '" . 
+			$assigned_by . "', '" . 
+			$date_due . "', '" . 
+			time() . "', '" .
+			$_POST['priority'] . "', '" .
+			$wpdb->escape($_POST['notes']) . "')";
 	$results = $wpdb->query($sql);
 }
 else if('update' == $name) {
@@ -181,56 +362,49 @@ else if('update' == $name) {
 	$id = $_POST["id"];
 	if('delete' == $dowhat)
 	{
-		$sql = 'delete from ' . $table_name . ' where id=' . $id;
+		$sql = 'delete from ' . $table_name . ' where task_id=' . $id;
 	}
 	else if('done' == $dowhat)
 	{
-		$sql = 'update ' . $table_name . " set status='1' where id=" .$id;
+		$sql = 'update ' . $table_name . " set status='1' where task_id=" .$id;
 	}
 	else
 	{
-		$sql = 'update ' . $table_name . " set status='0' where id=" .$id;
+		$sql = 'update ' . $table_name . " set status='0' where task_id=" .$id;
 	}
 	
 	$results = $wpdb->query($sql);
 }
-
-
-// This function should be called from within your template
-// $type = {all, due, duetoday} all => get all, due => get only those due, duetoday => get those due today
-// $limit = how many todo's do you want to display
-// $before = what you want preceding each item
-// $after = what you want following each item
-//
-// Ex. get_todo('all', 4, '<li>', '</li>');
-//
-// Note: 
-// 1. Each item will be enclosed in <div> tags with the classes 'todo-done', 'todo-due', 'todo-duetoday'
-// 2. The due date will be shown on hover
-// 3. Due today also means all those tasks whose entries have expired
-function pravin_get_todo($type = 'due', $limit = 1000, $before = '' , $after = '')
-{
+else if('drop' == $name) {
 	global $wpdb;
 	$table_name = $wpdb->prefix . 'pravin_todo';
-	$sql = '';
-	if('all' == $type)
+	$table_options = $table_name . '_options';
+	
+	$wpdb->query("DROP TABLE `$table_name`, `$table_options`;");
+}
+
+function pravin_get_todo()
+{
+	global $wpdb;
+	
+	$table_name = $wpdb->prefix . 'pravin_todo';
+	$table_name_options = $wpdb->prefix . 'pravin_todo_options';
+	
+	$sql = "SELECT * from `$table_name_options` LIMIT 1";
+	$options = $wpdb->get_results($sql);
+	$option = $options[0];
+	
+	$where_clause = '';
+	if($option->show_completed == '1')
 	{
-		$sql = "select due_date, item, status from " . $table_name . " order by status ASC, due_date ASC";
+		$where_clause = " WHERE status='1' ";
 	}
-	else if('due' == $type)
-	{
-		$sql = "select due_date, item, status from " . $table_name . " where status = '0' order by due_date ASC ";
-	}
+	$sql = "SELECT * from `$table_name` $where_clause ORDER BY $option->sort_f1 $option->sort_order_f1, $option->sort_f2 $option->sort_order_f2 LIMIT $option->show_limit";
 	
 	$results = $wpdb->get_results($sql);
-	$output_html = '';
-	$count = 1;
+	$output_html = '<ul>';
 	foreach($results as $result)
 	{
-		if($count > $limit)
-			break;
-		$count++;
-		
 		$class = 'due';
 		
 		if($result->status == '1')
@@ -241,50 +415,9 @@ function pravin_get_todo($type = 'due', $limit = 1000, $before = '' , $after = '
 		{
 			$class = 'duetoday';
 		}
-		$output_html .= $before . '<div class="todo-' . $class . '" title="' . date('F jS, Y', $result->due_date) . '">' . $result->item . "</div>" . $after ;
+		$output_html .= '<li class="todo-' . $class . '" title="' . date('F jS, Y', $result->date_due) . '">' . $result->task_desc . "</li>";
 	}
-	
+	$output_html .= '</ul>';
 	return $output_html;
 }
-
-// This function runs basic diagnostics
-function pravin_todo_diag()
-{
-	global $wpdb;
-	$output_html = '';
-	
-	// Check for table create perms
-	$sql = 'show grants';
-	$output_html .= '<h3>Checking table create perms</h3>';
-	$results = $wpdb->get_var($sql);
-	if(!$results)
-	{
-		$output_html .= '<p><b>Unable to run query:</b> ' . mysql_error() . '</p>';
-	}
-	else
-	{
-		$output_html .= '<p>' . $results . '</p>';
-	}
-	
-	
-	// Print the wp prefix string
-	$output_html .= '<h3>Prefix string for tables</h3><p>' . $wpdb->prefix . '</p>';
-	
-	
-	// Print the pravin_todo_table
-	$sql = "show tables like '" . $wpdb->prefix . "pravin_todo'";
-	$results = $wpdb->get_var($sql);
-	$output_html .= '<h3>Listing todo table</h3>';
-	if(!$results)
-	{
-		$output_html .= '<p><b>Unable to list todo table:</b> ' . mysql_error() . '</p>';
-	}
-	else
-	{
-		$output_html .= '<p>' . $results . '</p>';
-	}
-	
-	echo $output_html;
-}
-	
 ?>
