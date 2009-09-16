@@ -2,12 +2,12 @@
 /*
 Plugin Name: todo-plugin
 Plugin URI: http://www.DustyAnt.com/
-Description: Lets you create and manage a todo list. To show your todo list, just put <code>&lt;?php pravin_get_todo(); ?&gt;</code> in your template.
-Version: 0.2
+Description: Lets you create and manage a todo list. To show your todo list, just put <code>&lt;?php pravin_get_todo(); ?&gt;</code> in your template. Contains a dashboard widget that shows the contents of the to-do list only to predetermined roles.
+Version: 0.2.2
 Author: Pravin Paratey
 Author URI: http://www.DustyAnt.com
 */
-/*  Copyright 2007 Pravin Paratey (pravinp@gmail.com)
+/*  Copyright 2007 Pravin Paratey (pravinp@gmail.com); Dashboard widget, email notification and role capability via options setting added by Mark Lee, marcusantoniouslee1@yahoo.ca, April 2009
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -23,9 +23,8 @@ Author URI: http://www.DustyAnt.com
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 */
-
 class pravin {
-	
+
 	// --------------------------------------------------------------------
 	// Responsible for installing the plugin
 	// --------------------------------------------------------------------
@@ -69,7 +68,8 @@ class pravin {
 				sort_order1 	tinytext,
 				sort_field2		tinytext,
 				sort_order2 	tinytext,
-				
+
+				show_role_option tinytext,				
 				show_task_id	tinyint(1)	default '0',
 				show_task_owner	tinyint(1)	default '1',
 				show_assigned_by tinyint(1) default '0',
@@ -86,24 +86,35 @@ class pravin {
 			$results = $wpdb->query($sql);
 
 			// Add initial data
-			$sql = "INSERT INTO `$table_name` (show_limit, sort_field1, sort_order1, sort_field2, sort_order2) " . 
-				" VALUES ('5', 'status', 'DESC', 'date_due', 'DESC')";
+			$sql = "INSERT INTO `$table_name` (show_limit, sort_field1, sort_order1, sort_field2, sort_order2, show_role_option) " . 
+				" VALUES ('5', 'status', 'DESC', 'date_due', 'DESC', 'users')";
 			$results = $wpdb->query($sql);
 		}
 	}
-	
+
 	// --------------------------------------------------------------------
 	// Adds the ToDo page under Manage
 	// --------------------------------------------------------------------
 	function todo_addpages() {
-		add_management_page('Manage your ToDo list', 'ToDo', 8, 'todo', array('pravin', 'todo_addoption'));
+		add_management_page('Manage your ToDo list', 'ToDo - Add', 1, 'todo', array('pravin', 'todo_addoption'));
+//=======================================================================
+// Start create Capability. It works but maybe it should be somewhere else
+// ======================================================================
+add_filter('capabilities_list', 'todo_caps_list');
+function todo_caps_list($caps) {
+$caps[] = 'add_assignment';
+return $caps;
+}
+// =======================================================================
+// End create capability
+// =======================================================================
 	}
 	
 	// --------------------------------------------------------------------
 	// Responsible for rendering the ToDo page under Manage
 	// --------------------------------------------------------------------
 	function todo_addoption()
-	{		
+	{
 		global $wpdb;
 		
 		$output_html = '<div class="wrap">	
@@ -115,6 +126,7 @@ class pravin {
 	</table>
 	<p>&nbsp;</p>
 	<h2>Add a ToDo</h2>
+	<p>Enter your to-do using this form. The information saved will be displayed in the list above and an email will be sent to the person given the task. Do a brief smmary in the "Task" field, <strong>select a deadline date</strong> and <strong>make sure to select the correct user</strong>. Information in the "Notes" text area will be appended to the "Task" in the body of the email message, so you may try to make the idea flow by giving details about the task.<p>You must visit the <a href="options-general.php?page=todo.php">ToDo Settings page</a> to change the list of names from which you may choose a recipient.</p>
 	<form name="addtodo" id="addtodo" action="edit.php?page=todo" method="post">
 	<table cellpadding="5" cellspacing="2" width="100%">
 	<tbody>
@@ -157,6 +169,7 @@ class pravin {
 		<tr>
 			<td></td>
 			<td>
+
 			<input type="hidden" name="operation" value="add" />
 			<input type="submit" name="submit" value="Add ToDo" />
 			</td>
@@ -224,7 +237,7 @@ class pravin {
 	</form>
 	<p>&nbsp;</p>
 	<h2>Advanced</h2>
-	<p>If you are upgrading from v0.1 to v0.2, use this to DROP your table. <b>You will lost all ToDo data and settings!</b> After you press the button, you will get an error. It is expected. Deactivate the plugin and activate it again to recreate your tables.</p>
+	<p>If you are upgrading from v0.1 to v0.2, use this to DROP your table. <b>You will lose all ToDo data and settings!</b> After you press the button, you will get an error. It is expected. Deactivate the plugin and activate it again to recreate your tables.</p>
 	<form action="edit.php?page=todo" method="POST"><input type="hidden" name="operation" value="drop" /><input type="submit" value="Drop Table" /></form>
 </div>';
 		
@@ -252,12 +265,12 @@ class pravin {
 					$todolist .= '<tr>';
 				}
 				
-				$assigned_by = $wpdb->get_var("SELECT user_nicename FROM `$wpdb->users` WHERE ID = $result->assigned_by LIMIT 1");
-				$assigned_to = $wpdb->get_var("SELECT user_nicename FROM `$wpdb->users` WHERE ID = $result->task_owner LIMIT 1");
+				$assigned_by = $wpdb->get_var("SELECT display_name FROM `$wpdb->users` WHERE ID = $result->assigned_by LIMIT 1");
+				$assigned_to = $wpdb->get_var("SELECT display_name FROM `$wpdb->users` WHERE ID = $result->task_owner LIMIT 1");
 				
 				// 'F jS, Y @ H:i'
-				$todolist .= '<td><div title="' . gmdate('F jS, Y @ H:i', $result->date_due) . '">' . gmdate('m/d/y H:i', $result->date_due) . '</div></td>'. 
-					'<td><div title="' . $result->notes . '">' .$result->task_desc . '</td><td>' .
+				$todolist .= '<td><div title="' . gmdate('F jS, Y @ H:i', $result->date_due) . '">' . gmdate('M j, Y', $result->date_due) . '</div></td>'. 
+					'<td><div title="' . stripslashes($result->notes) . '">' .$result->task_desc . '</td><td>' .
 					$assigned_to . '</td><td>' .
 					$result->priority . '</td>' . 
 					'<td><div title="Assigned on ' . gmdate('F jS, Y @ H:i', $result->date_created) . '">' . $assigned_by . '</td><td>' .
@@ -275,6 +288,7 @@ class pravin {
 						</select>
 						<input type="hidden" name="operation" value="update" />
 						<input type="hidden" name="id" value="' . $result->task_id . '" />
+						
 						<input type="submit" value="Go!" />
 					</form></td></tr>';
 			}
@@ -304,13 +318,39 @@ class pravin {
 			'<input name="minute" size="2" maxlength="2" value="' . date('i') . '" /> hrs';
 			
 		$output_html = str_replace('<$ToDoAdd$>', $month_html, $output_html);
-			
-		$users = $wpdb->get_results("SELECT * FROM `$wpdb->users`");
+// Get option list of all users...
+            global $wpdb;
+ 			$table_name = $wpdb->prefix . 'pravin_todo_options';
+		    $user_group = $wpdb->get_var("SELECT show_role_option FROM $table_name LIMIT 1");
+//            $role = $user_group;
+            if ($user_group == 'users'){
+            		$users = $wpdb->get_results("SELECT * FROM `$wpdb->users`");
 		$userlist = '';
 		foreach($users as $user)
 		{
-			$userlist .= '<option value="' . $user->ID . '">' . $user->user_nicename . '</option>';
+			$userlist .= '<option value="' . $user->ID . '">' . $user->display_name . '</option>';
 		}
+		$output_html = str_replace('<$UserList$>', $userlist, $output_html);
+		}
+// ...or users from roles using DE Groot's select users with role. ########################################### 
+		else {
+
+	  	$this_role = "'[[:<:]]".$user_group."[[:>:]]'";
+	  	$query = "SELECT * FROM $wpdb->users WHERE ID = ANY (SELECT user_id FROM $wpdb->usermeta WHERE meta_key = 'wp_capabilities' AND meta_value RLIKE $this_role) ORDER BY user_nicename ASC LIMIT 10000";
+	  	$users_of_this_role = $wpdb->get_results($query);
+	  	if ($users_of_this_role)
+		{
+	    	foreach($users_of_this_role as $user)
+			{
+		    	$curuser = get_userdata($user->ID);
+			$userlist .= '<option value="' . $curuser->ID . '">' . $curuser->display_name  .' </option>';
+
+		    }
+	  	}
+	  	} //end else
+
+//DE Groot's select role END
+
 		$output_html = str_replace('<$UserList$>', $userlist, $output_html);
 
 		
@@ -408,7 +448,35 @@ class pravin {
 		echo $output_html;
 	}
 }
+// --------------------------------------------------------------------
+// Dashboard widget
+// --------------------------------------------------------------------
+//Pre-check user status and role and show only to allowed roles. This can be removed to allow dashboard widget to be seen by all logged in users.
+function hide_show_assignboard(){
+  if(is_user_logged_in) { // only if there is a user logged in
+  require (ABSPATH . WPINC . '/pluggable.php');
+   $logged_user = wp_get_current_user();
+   $user_roles = $logged_user->roles; // an array of roles
+     foreach($user_roles as $user_role)
+   {
+	  if($user_role=='administrator' || $user_role=='intern' ||$user_role=='editor')
+    include('dashboard.php');}
+    }
+  }
+hide_show_assignboard();
+// --------------------------------------------------------------------
+// End dashboard widget
+// --------------------------------------------------------------------	
+// ---------------------------------------------------
+// Insert settings menu and page
+// ---------------------------------------------------
+add_action('admin_menu', 'todo_plugin_menu');
 
+function todo_plugin_menu() {
+  add_options_page('ToDo Options', 'ToDo Settings', 8, 'todo.php', 'todo_plugin_options');
+}
+
+	include ('todo_settings.php');
 // --------------------------------------------------------------------
 // Widgetize!
 // --------------------------------------------------------------------
@@ -445,23 +513,25 @@ if (isset($_GET['activate']) && $_GET['activate'] == 'true') {
 // --------------------------------------------------------------------
 // Insert the mt_add_pages() sink into the plugin hook list for 'admin_menu'
 // --------------------------------------------------------------------
+if (  current_user_can('add_assignment') )	
 add_action('admin_menu', array('pravin', 'todo_addpages'));
 
 // Run our code later in case this loads prior to any required plugins.
 add_action('widgets_init', 'widget_pravin_todo');
 
-
 // --------------------------------------------------------------------
 // Handle any add/delete/update requests
 // --------------------------------------------------------------------
+
 $name = $_POST["operation"];
 if('add' == $name) {
+
+// get current user :(
+global $current_user;
+$current_user = wp_get_current_user();	
 	global $wpdb;
-	
-	// I don't know how to get current user :(
-	// wp-includes/pluggable-functions line 30 looks promising
-	$assigned_by = '1';
-	
+$assigned_by = ($current_user->ID);
+
 	$table_name = $wpdb->prefix . 'pravin_todo';
 	$date_due = mktime($_POST["hour"], $_POST["minute"], 0, $_POST["month"], $_POST["day"], $_POST["year"]);
 	$sql = "INSERT INTO `$table_name` (task_desc, task_owner, assigned_by, date_due, date_created, priority, notes)  VALUES( '" .
@@ -473,6 +543,14 @@ if('add' == $name) {
 			$_POST['priority'] . "', '" .
 			$wpdb->escape($_POST['notes']) . "')";
 	$results = $wpdb->query($sql);
+//====================================================
+//Email the task
+//====================================================
+include ('notify.php');
+ mail_todo();
+ // ==================================================
+ // End Function email the task
+ // ==================================================
 }
 else if('update' == $name) {
 	global $wpdb;
@@ -515,7 +593,14 @@ else if('options' == $name) {
 	"', show_completed='" . $_POST['showcompleted'] . 
 	"', show_duetoday='" . $_POST['showduetoday'] . "'");
 }
-
+// update roles list
+else if('showroleoption' == $name) {
+	global $wpdb;
+	$table_name = $wpdb->prefix . 'pravin_todo_options';
+	
+	$wpdb->query("UPDATE $table_name SET show_role_option='" . $_POST['usergroups'] . "'");
+}
+// end update roles list
 function pravin_get_todo()
 {
 	global $wpdb;
@@ -552,5 +637,6 @@ function pravin_get_todo()
 	}
 	$output_html .= '</ul>';
 	return $output_html;
+
 }
 ?>
