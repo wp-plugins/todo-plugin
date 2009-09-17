@@ -2,8 +2,8 @@
 Contributors: pravin, Pizdin Dim, starapple
 Tags: todo, list,  tasks, assignments, roles
 Requires at least: 2.5
-Tested up to: 2.7.1
-Stable tag: 0.2.3
+Tested up to: 2.8.2
+Stable tag: 0.3
 
 This plugin lets you create and manage a todo list. Writers are sent assignments and a list kept on the Dashboard on the status of the assignments.
 
@@ -17,8 +17,8 @@ This plugin lets you create and manage a todo list. Writers are sent assignments
 
 == Screenshots ==
 
- == Upgrading ==
-If you are upgrading from v0.1 to v0.2.2, go to the ToDo -Add page and use this to DROP your table.You will lose all ToDo data and settings! After you press the button, you may get an error. It is expected. Deactivate the plugin and activate it again to recreate your tables.
+== Upgrading ==
+If you are upgrading from v0.2.2 to v0.3, go to the ToDo -Add page and use this to DROP your table.You will lose all ToDo data and settings! After you press the button, you may get an error. It is expected. Deactivate the plugin and activate it again to recreate your tables. In the future, we'll do a better job of this.
 
 == Uninstalling ==
 1. Go to the ToDo -Add page and use the button in the Advanced section to DROP your table.You will lose all ToDo data and settings! After you press the button, you may get an error. It is expected. 
@@ -46,9 +46,11 @@ Assignments Board:
 An Assignment Board (ToDo List) widget displays in the Dashboard to remind administrators and editors of the pending tasks. The Widget is set to be viewed only by administrators and editors.
 
 Template Usage:
-A ToDo list can be shown in your template by using a widget. To show your todo list, just put <code><?php pravin_get_todo(); ?></code> in your template.
+A ToDo list can be shown in your template by using a widget. To show your todo list, just put <code><?php echo pravin_get_todo(); ?></code> in your template.
 
 == Change log ==
+September 2009 - Committed code into the repo. Minor changes
+
 April 2009 - added Dashboard widget, email notification and role capability via options setting.
 
 2007 - Original version
